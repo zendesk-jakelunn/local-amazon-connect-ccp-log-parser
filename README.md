@@ -28,31 +28,34 @@ This script mirrors the functionality of Amazon's online CCP Log Parser tool, bu
 1. **Clone or download this script** to your local machine
 
 2. **Create a virtual environment** (recommended to avoid Homebrew Python conflicts):
-cd /Users/{user}/Documents/Dev/Utilities/localCCP
+cd {directory where this repo was cloned into}
 python3 -m venv venv
 source venv/bin/activate
 
-text
 
 3. **Install dependencies**:
 pip install matplotlib
 
-text
 
 ## Directory Structure
 
 Create the following directory structure:
 
 localCCP/
+
 ├── ccp_log_parser.py
+
 ├── README.md
+
 ├── agentLogsToParse/
+
 │ ├── agent-log-11.txt
 │ ├── agent-log-12.txt
 │ └── ...
+
 └── venv/
 
-text
+
 
 Place all CCP log files you want to analyze in the `agentLogsToParse/` directory.
 
@@ -74,8 +77,6 @@ This parser expects CCP log files in **JSON array format**, where each entry is 
 "contextLayer": "CCP"
 }
 
-text
-
 This is the native format exported from Amazon Connect's CCP log download feature.
 
 ## Usage
@@ -83,12 +84,8 @@ This is the native format exported from Amazon Connect's CCP log download featur
 1. **Activate your virtual environment** (if using one):
 source venv/bin/activate
 
-text
-
 2. **Run the script**:
 python ccp_log_parser.py
-
-text
 
 3. **Select a log file** from the interactive menu by entering its number
 
@@ -134,16 +131,12 @@ To change the default log directory, edit the `DEFAULT_LOG_DIRECTORY` variable i
 
 DEFAULT_LOG_DIRECTORY = "/path/to/your/log/directory"
 
-text
-
 ## Troubleshooting
 
 ### ModuleNotFoundError: No module named 'matplotlib'
 **Solution**: Ensure you've activated your virtual environment and run:
 source venv/bin/activate
 pip install matplotlib
-
-text
 
 ### No log files found
 **Possible causes**:
