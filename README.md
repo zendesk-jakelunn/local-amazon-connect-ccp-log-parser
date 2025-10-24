@@ -49,10 +49,6 @@ localCCP/
 
 ├── agentLogsToParse/
 
-│ ├── agent-log-11.txt
-│ ├── agent-log-12.txt
-│ └── ...
-
 └── venv/
 
 
