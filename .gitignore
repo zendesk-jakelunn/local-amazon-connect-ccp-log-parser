@@ -1,0 +1,32 @@
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Log files (sensitive data!)
+agentLogsToParse/
+*.txt
+*.log
+
+# Generated output files
+ccp_logs_readable.txt
+ccp_logs_viewer.html
+skew_over_time.png
+skew_distribution.png
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
