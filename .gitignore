@@ -9,10 +9,9 @@ __pycache__/
 *$py.class
 *.so
 
-# Log files (sensitive data!)
-agentLogsToParse/
-*.txt
-*.log
+# Log files in agentLogsToParse (but keep the directory structure)
+agentLogsToParse/*.txt
+agentLogsToParse/*.log
 
 # Generated output files
 ccp_logs_readable.txt
