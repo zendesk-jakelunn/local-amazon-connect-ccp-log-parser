@@ -32,12 +32,12 @@ This script mirrors the functionality of Amazon's online CCP Log Parser tool, bu
 
 2. **Create a virtual environment** (recommended to avoid Homebrew Python conflicts):
 
-    python3 -m venv venv  
-    source venv/bin/activate
+    `python3 -m venv venv`  
+    `source venv/bin/activate`
 
 3. **Install dependencies**:
 
-    pip install matplotlib
+    `pip install matplotlib`
 
 ## Directory Structure Create the following directory structure:
 
@@ -75,11 +75,11 @@ This is the native format exported from Amazon Connect's CCP log download featur
 
 1. **Activate your virtual environment** (if using one):
 
-    source venv/bin/activate
+    `source venv/bin/activate`
 
 2. **Run the script**:
 
-    python ccp_log_parser.py
+    `python ccp_log_parser.py`
 
 
 3. **Select a log file** from the interactive menu by entering its number
