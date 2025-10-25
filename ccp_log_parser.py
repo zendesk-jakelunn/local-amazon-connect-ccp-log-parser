@@ -520,8 +520,9 @@ def main():
     print("Amazon Connect CCP Log Parser - Local Edition")
     print("=" * 80 + "\n")
     
-    # Specify the default directory to check
-    DEFAULT_LOG_DIRECTORY = "/Users/jake.lunn/Documents/Dev/Utilities/localCCP/agentLogsToParse"
+    # Use relative path - finds agentLogsToParse directory next to the script
+    script_dir = Path(__file__).parent
+    DEFAULT_LOG_DIRECTORY = script_dir / "agentLogsToParse"
     
     print(f"📂 Scanning directory: {DEFAULT_LOG_DIRECTORY}")
     
