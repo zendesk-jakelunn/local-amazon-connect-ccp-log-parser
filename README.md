@@ -2,12 +2,31 @@
 
 A Python tool for parsing and analyzing Amazon Connect Contact Control Panel (CCP) logs locally on your machine. This tool provides readable log output, interactive HTML viewing, and skew metrics visualization with robust error handling and debugging capabilities.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Directory Structure](#directory-structure)
+- [CCP Log Format](#ccp-log-format)
+- [Usage](#usage)
+- [Output Files](#output-files)
+- [Configuration](#configuration)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Understanding the Output](#understanding-the-output)
+- [Development](#development)
+- [License](#license)
+
 ## Overview
 
 This script mirrors the functionality of Amazon's online CCP Log Parser tool, but runs entirely offline on your local machine for enhanced data privacy and convenience. It processes CCP `agent-log.txt` files (JSON format) to extract structured log data, calculate client-server clock skew metrics, and generate visual reports.
 
 ## Features
 
+### Core Functionality
 - **Automatic File Discovery**: Scans a designated directory and presents an interactive menu to select log files
 - **JSON Array Parsing**: Handles CCP's native JSON array log format with proper field extraction
 - **Component-Based Filtering**: View logs by component (ccp, SharedWorker, CRM, etc.)
@@ -18,69 +37,133 @@ This script mirrors the functionality of Amazon's online CCP Log Parser tool, bu
 - **Debug Information**: Shows parsing summary and sample log entries to help troubleshoot format issues
 - **Offline Processing**: All data processing happens locally—no external API calls or data uploads
 
-## Prerequisites
+### Code Quality
+- **Type Hints**: Full type annotation throughout the codebase for better IDE support and code clarity
+- **Comprehensive Documentation**: Detailed docstrings for all functions and classes
+- **Logging Module**: Professional logging system with configurable verbosity
+- **Unit Tests**: Test suite covering core functionality with 11+ test cases
+- **Modular Design**: Separated HTML template for easier customization
+
+## Requirements
 
 - Python 3.7+
-- matplotlib library
+- matplotlib 3.0+
+
+## Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/zendesk-jakelunn/local-amazon-connect-ccp-log-parser.git
+cd local-amazon-connect-ccp-log-parser
+
+# Set up virtual environment and install dependencies
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install matplotlib
+
+# Place your log files in agentLogsToParse/ directory
+
+# Run the parser
+python ccp_log_parser.py
+```
 
 ## Installation
 
 1. **Clone or download this repository**
 
-    git clone [https://github.com/zendesk-jakelunn/local-amazon-connect-ccp-log-parser.git]
-    cd amazon-connect-ccp-log-parser
+   ```bash
+   git clone https://github.com/zendesk-jakelunn/local-amazon-connect-ccp-log-parser.git
+   cd local-amazon-connect-ccp-log-parser
+   ```
 
-2. **Create a virtual environment** (recommended to avoid Homebrew Python conflicts):
+2. **Create a virtual environment** (recommended to avoid Python conflicts):
 
-    `python3 -m venv venv`  
-    `source venv/bin/activate`
+   **macOS/Linux:**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+   **Windows:**
+   ```cmd
+   python -m venv venv
+   venv\Scripts\activate
+   ```
 
 3. **Install dependencies**:
 
-    `pip install matplotlib`
+   ```bash
+   pip install matplotlib
+   ```
 
-## Directory Structure Create the following directory structure:
+   Alternatively, install all dependencies from `requirements.txt`:
+   ```bash
+   pip install -r requirements.txt
+   ```
+   Note: Only `matplotlib` is required for core functionality. Other packages in `requirements.txt` are not used by this tool.
 
-    amazon-connect-ccp-log-parser/  
-    ├── ccp_log_parser.py  
-    ├── README.md  
-    ├── agentLogsToParse/  
-    │ ├── agent-log-1.txt  
-    │ ├── agent-log-2.txt  
-    │ └── ...  
-    └── venv/
-Place all CCP log files you want to analyze in the `agentLogsToParse/` directory. 
+## Directory Structure
+
+The repository has the following structure:
+
+```
+local-amazon-connect-ccp-log-parser/
+├── ccp_log_parser.py           # Main parser script
+├── template_log_viewer.html    # HTML template for interactive viewer
+├── test_ccp_log_parser.py      # Unit tests
+├── README.md                   # This file
+├── requirements.txt            # Python dependencies
+├── .gitignore                  # Git ignore rules
+├── agentLogsToParse/           # Place your log files here
+│   ├── .gitkeep
+│   ├── agent-log-1.txt         # Your log files (not tracked by git)
+│   └── agent-log-2.txt
+└── venv/                       # Virtual environment (not tracked by git)
+```
+
+**Note:** Place all CCP log files you want to analyze in the `agentLogsToParse/` directory. Log files are excluded from git tracking for privacy. 
 
 ## CCP Log Format
+
 This parser expects CCP log files in **JSON array format**, where each entry is a JSON object with the following structure:
 
-    {
-    "component": "ccp",
-    "level": "LOG",
-    "text": "[UserMediaProvider] getUserMedia called",
-    "time": "2025-10-24T22:58:26.721Z",
-    "tabId": "123etc123etc",
-    "exception": null,
-    "objects":
-    [],
-    "line": 170,
-    "agentResourceId": "123etc123etc",
-    "loggerId": "123etc123etc",
-    "contextLayer": "CCP"
-    }
+```json
+{
+  "component": "ccp",
+  "level": "LOG",
+  "text": "[UserMediaProvider] getUserMedia called",
+  "time": "2025-10-24T22:58:26.721Z",
+  "tabId": "123etc123etc",
+  "exception": null,
+  "objects": [],
+  "line": 170,
+  "agentResourceId": "123etc123etc",
+  "loggerId": "123etc123etc",
+  "contextLayer": "CCP"
+}
+```
 
-This is the native format exported from Amazon Connect's CCP log download feature.
+This is the native format exported from Amazon Connect's CCP log download feature. The file should be a JSON array containing multiple log entry objects.
 
 ## Usage
 
 1. **Activate your virtual environment** (if using one):
 
-    `source venv/bin/activate`
+   **macOS/Linux:**
+   ```bash
+   source venv/bin/activate
+   ```
+
+   **Windows:**
+   ```cmd
+   venv\Scripts\activate
+   ```
 
 2. **Run the script**:
 
-    `python ccp_log_parser.py`
-
+   ```bash
+   python ccp_log_parser.py
+   ```
 
 3. **Select a log file** from the interactive menu by entering its number
 
@@ -116,6 +199,8 @@ An interactive HTML page featuring:
 - Dark theme optimized for extended viewing
 - Parse error count in the header
 
+**Note**: The HTML output is generated from `template_log_viewer.html`. You can customize the template to modify the viewer's appearance and behavior. If the template is missing, the parser will use a minimal fallback template.
+
 ### Skew Metrics Graphs
 
 - **skew_over_time.png**: Line graph showing client-server timestamp differences throughout the session
@@ -125,9 +210,42 @@ An interactive HTML page featuring:
 
 ## Configuration
 
-To change the default log directory, edit the `DEFAULT_LOG_DIRECTORY` variable in the `main()` function:
+### Changing the Log Directory
 
-DEFAULT_LOG_DIRECTORY = "/path/to/your/log/directory"(this repo contains a directory named `agentLogsToParse` as a default location to store logs to be parsed)
+To change the default log directory, edit the `DEFAULT_LOG_DIRECTORY` variable in the `main()` function of `ccp_log_parser.py`:
+
+```python
+DEFAULT_LOG_DIRECTORY = Path("/path/to/your/log/directory")
+```
+
+**Default:** The repository includes an `agentLogsToParse/` directory as the default location for storing logs to be parsed.
+
+## Testing
+
+The project includes a comprehensive unit test suite to verify functionality.
+
+### Running Tests
+
+**Using unittest:**
+```bash
+python -m unittest test_ccp_log_parser.py
+```
+
+**Using pytest (if installed):**
+```bash
+pytest test_ccp_log_parser.py -v
+```
+
+### Test Coverage
+
+The test suite includes:
+- Parser initialization tests
+- Valid and invalid log file parsing
+- Empty log file handling
+- Skew metric extraction
+- Snapshot detection
+- Output file generation (text and HTML)
+- Directory listing functionality
 
 ## Troubleshooting
 
@@ -135,8 +253,10 @@ DEFAULT_LOG_DIRECTORY = "/path/to/your/log/directory"(this repo contains a direc
 
 **Solution**: Ensure you've activated your virtual environment and run:
 
-    source venv/bin/activate  
-    pip install matplotlib
+```bash
+source venv/bin/activate
+pip install matplotlib
+```
 
 
 ### No log files found
@@ -197,13 +317,31 @@ DEFAULT_LOG_DIRECTORY = "/path/to/your/log/directory"(this repo contains a direc
 - `SharedWorker`: Background worker process events
 - `CRM`: Customer Relationship Management integration events
 
-## Requirements
+## Development
 
-- Python 3.7+
-- matplotlib 3.0+
+### Code Quality Features
+
+This project follows Python best practices:
+- **Type Hints**: Full type annotations using the `typing` module for improved IDE support and code clarity
+- **Docstrings**: Comprehensive documentation for all classes, methods, and functions following Google style
+- **Logging**: Uses Python's `logging` module instead of print statements for better control and formatting
+- **Modular Design**: HTML template separated into `template_log_viewer.html` for easier customization
+- **Error Handling**: Robust exception handling with detailed error messages
+- **Testing**: Unit test coverage for core functionality
+
+### Contributing
+
+When contributing to this project:
+1. Maintain type hints for all functions
+2. Add docstrings to new methods
+3. Update tests when adding new features
+4. Use the logging module for output instead of print statements
+5. Test changes with `python -m unittest test_ccp_log_parser.py`
 
 ## License
 
-This tool is provided as-is for local use with Amazon Connect CCP logs. There is no guarantee this will work for all situations. 
+This tool is provided as-is for local use with Amazon Connect CCP logs. No warranty or guarantee is provided.
 
-If you have questions, feel free to reach out to Jake Lunn :D
+## Author
+
+Jake Lunn - For questions or support, please open an issue on GitHub.
