@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CCP Log Viewer</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            margin: 0;
+        }
+        .header {
+            background-color: #252526;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: #569cd6;
+        }
+        .stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 10px;
+        }
+        .stat-item {
+            color: #ce9178;
+        }
+        .log-entry {
+            background-color: #252526;
+            border-left: 4px solid #007acc;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .log-entry:hover {
+            background-color: #2d2d30;
+        }
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .log-timestamp {
+            color: #4ec9b0;
+            font-weight: bold;
+        }
+        .log-level {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .log-level.INFO { background-color: #0e639c; }
+        .log-level.WARN { background-color: #d16969; }
+        .log-level.ERROR { background-color: #f44747; }
+        .log-level.DEBUG { background-color: #6c6c6c; }
+        .log-level.LOG { background-color: #4a4a4a; }
+        .log-level.TRACE { background-color: #3a3a3a; }
+        .log-text {
+            color: #9cdcfe;
+            margin-top: 5px;
+            font-size: 13px;
+        }
+        .log-content {
+            display: none;
+            background-color: #1e1e1e;
+            padding: 10px;
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+        .log-entry.expanded .log-content {
+            display: block;
+        }
+        .expand-icon {
+            color: #858585;
+            margin-right: 10px;
+        }
+        .log-entry.expanded .expand-icon::before {
+            content: '▼ ';
+        }
+        .log-entry:not(.expanded) .expand-icon::before {
+            content: '▶ ';
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .snapshot {
+            border-left-color: #d7ba7d !important;
+        }
+        .filter-bar {
+            background-color: #252526;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .filter-bar select, .filter-bar input {
+            background-color: #3c3c3c;
+            color: #d4d4d4;
+            border: 1px solid #007acc;
+            padding: 8px;
+            border-radius: 3px;
+            margin-right: 10px;
+        }
+        .component-badge {
+            background-color: #3c3c3c;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #dcdcaa;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Amazon Connect CCP Log Parser</h1>
+        <div class="stats">
+            <div class="stat-item">Total Entries: <span id="total-entries">0</span></div>
+            <div class="stat-item">Snapshots: <span id="total-snapshots">0</span></div>
+            <div class="stat-item">Skew Metrics: <span id="total-skew">0</span></div>
+            <div class="stat-item">Parse Errors: <span id="total-errors">0</span></div>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <label>Filter by Level:</label>
+        <select id="level-filter">
+            <option value="all">All Levels</option>
+            <option value="INFO">INFO</option>
+            <option value="WARN">WARN</option>
+            <option value="ERROR">ERROR</option>
+            <option value="DEBUG">DEBUG</option>
+            <option value="LOG">LOG</option>
+            <option value="TRACE">TRACE</option>
+        </select>
+        <label>Search:</label>
+        <input type="text" id="search-input" placeholder="Search logs...">
+    </div>
+
+    <div id="logs-container"></div>
+
+    <script>
+        const logsData = {LOGS_DATA};
+
+        document.getElementById('total-entries').textContent = logsData.length;
+        document.getElementById('total-snapshots').textContent = {TOTAL_SNAPSHOTS};
+        document.getElementById('total-skew').textContent = {TOTAL_SKEW};
+        document.getElementById('total-errors').textContent = {TOTAL_ERRORS};
+
+        const container = document.getElementById('logs-container');
+
+        function renderLogs(filteredLogs) {
+            container.innerHTML = '';
+            filteredLogs.forEach((log, idx) => {
+                const logDiv = document.createElement('div');
+                logDiv.className = 'log-entry' + (log.is_snapshot ? ' snapshot' : '');
+                logDiv.innerHTML = `
+                    <div class="log-header">
+                        <div>
+                            <span class="expand-icon"></span>
+                            <span class="log-timestamp">${log.timestamp}</span>
+                            <span class="component-badge">${log.component}</span>
+                        </div>
+                        <span class="log-level ${log.level}">${log.level}</span>
+                    </div>
+                    <div class="log-text">${log.text}</div>
+                    <div class="log-content">
+                        <pre>${JSON.stringify(log.data, null, 2)}</pre>
+                    </div>
+                `;
+                logDiv.addEventListener('click', () => {
+                    logDiv.classList.toggle('expanded');
+                });
+                container.appendChild(logDiv);
+            });
+        }
+
+        renderLogs(logsData);
+
+        document.getElementById('level-filter').addEventListener('change', (e) => {
+            const level = e.target.value;
+            const filtered = level === 'all' ? logsData : logsData.filter(log => log.level === level);
+            renderLogs(filtered);
+        });
+
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = logsData.filter(log =>
+                log.text.toLowerCase().includes(searchTerm) ||
+                log.component.toLowerCase().includes(searchTerm) ||
+                log.timestamp.toLowerCase().includes(searchTerm) ||
+                JSON.stringify(log.data).toLowerCase().includes(searchTerm)
+            );
+            renderLogs(filtered);
+        });
+    </script>
+</body>
+</html>

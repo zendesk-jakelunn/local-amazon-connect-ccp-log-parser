@@ -1,31 +1,65 @@
 import json
+import logging
 import re
 from datetime import datetime
 from collections import defaultdict
+from typing import List, Dict, Any, Optional
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(message)s'  # Simple format for user-facing messages
+)
+logger = logging.getLogger(__name__)
+
 class CCPLogParser:
-    def __init__(self, log_file_path):
-        self.log_file_path = log_file_path
-        self.logs = []
-        self.skew_metrics = []
-        self.api_metrics = []
-        self.snapshots = []
-        self.parse_errors = []
+    """Parser for Amazon Connect CCP log files in JSON format.
+
+    This class handles parsing, analysis, and visualization of CCP logs,
+    including extracting metrics, generating reports, and creating interactive viewers.
+
+    Attributes:
+        log_file_path: Path to the log file to parse
+        logs: List of successfully parsed log entries
+        skew_metrics: List of client-server timestamp skew measurements
+        api_metrics: List of API call metrics (reserved for future use)
+        snapshots: List of agent snapshot entries
+        parse_errors: List of entries that failed to parse with error details
+    """
+
+    def __init__(self, log_file_path: Path) -> None:
+        """Initialize the parser with a log file path.
+
+        Args:
+            log_file_path: Path object pointing to the log file to parse
+        """
+        self.log_file_path: Path = log_file_path
+        self.logs: List[Dict[str, Any]] = []
+        self.skew_metrics: List[Dict[str, Any]] = []
+        self.api_metrics: List[Dict[str, Any]] = []
+        self.snapshots: List[Dict[str, Any]] = []
+        self.parse_errors: List[Dict[str, Any]] = []
         
-    def parse_log_file(self):
-        """Parse the agent-log.txt file - expects a JSON array of log entries"""
+    def parse_log_file(self) -> None:
+        """Parse the agent-log.txt file - expects a JSON array of log entries.
+
+        Reads the log file as a JSON array and extracts structured information from each entry.
+        Populates the logs, snapshots, and skew_metrics lists, and tracks any parsing errors.
+
+        The method prints progress information and a summary of parsing results to stdout.
+        """
         try:
             with open(self.log_file_path, 'r', encoding='utf-8') as f:
                 # Read the entire file as JSON array
                 log_data = json.load(f)
                 
                 if not isinstance(log_data, list):
-                    print(f"✗ Error: Expected JSON array, got {type(log_data)}")
+                    logger.error(f"✗ Error: Expected JSON array, got {type(log_data)}")
                     return
-                
-                print(f"📊 Found {len(log_data)} log entries in JSON array")
+
+                logger.info(f"📊 Found {len(log_data)} log entries in JSON array")
                 
                 for idx, entry in enumerate(log_data):
                     try:
@@ -84,25 +118,32 @@ class CCPLogParser:
                             'data': str(entry)[:200]
                         })
                 
-                # Print parsing summary
-                print(f"\n📊 Parsing Summary:")
-                print(f"   Total entries: {len(log_data)}")
-                print(f"   Successfully parsed: {len(self.logs)}")
-                print(f"   Parse errors: {len(self.parse_errors)}")
-                
+                # Log parsing summary
+                logger.info(f"\n📊 Parsing Summary:")
+                logger.info(f"   Total entries: {len(log_data)}")
+                logger.info(f"   Successfully parsed: {len(self.logs)}")
+                logger.info(f"   Parse errors: {len(self.parse_errors)}")
+
                 if self.parse_errors:
-                    print(f"\n⚠️  Sample parsing errors (first 5):")
+                    logger.warning(f"\n⚠️  Sample parsing errors (first 5):")
                     for error in self.parse_errors[:5]:
-                        print(f"   Index {error['index']}: {error['reason']}")
+                        logger.warning(f"   Index {error['index']}: {error['reason']}")
                 
         except json.JSONDecodeError as e:
-            print(f"✗ Error: File is not valid JSON")
-            print(f"   {str(e)}")
+            logger.error(f"✗ Error: File is not valid JSON")
+            logger.error(f"   {str(e)}")
         except Exception as e:
-            print(f"✗ Error reading file: {str(e)}")
+            logger.error(f"✗ Error reading file: {str(e)}")
     
-    def _extract_skew_metric(self, log_entry):
-        """Extract skew between client and server timestamps"""
+    def _extract_skew_metric(self, log_entry: Dict[str, Any]) -> None:
+        """Extract and calculate skew between client and server timestamps.
+
+        Args:
+            log_entry: Parsed log entry dictionary containing 'data' with timestamps
+
+        The method calculates the difference between client and server timestamps
+        and appends the result to skew_metrics if both timestamps are present.
+        """
         data = log_entry['data']
         try:
             server_ts = data.get('serverTimestamp')
@@ -122,19 +163,36 @@ class CCPLogParser:
         except (ValueError, TypeError) as e:
             pass
     
-    def print_sample_logs(self, count=5):
-        """Print first few log entries to help debug format issues"""
-        print(f"\n📄 First {min(count, len(self.logs))} log entries:")
-        print("=" * 80)
+    def print_sample_logs(self, count: int = 5) -> None:
+        """Print first few log entries to help debug format issues.
+
+        Args:
+            count: Number of log entries to display (default: 5)
+
+        Prints a formatted preview of the first N log entries to stdout,
+        including timestamp, level, component, and truncated text.
+        """
+        logger.info(f"\n📄 First {min(count, len(self.logs))} log entries:")
+        logger.info("=" * 80)
         for i, log in enumerate(self.logs[:count], 1):
-            print(f"\n[{i}] Index {log.get('index', 'unknown')}")
-            print(f"Time: {log['timestamp_str']}")
-            print(f"Level: {log['level']} | Component: {log['component']}")
-            print(f"Text: {log['text'][:100]}{'...' if len(log['text']) > 100 else ''}")
-            print("-" * 80)
+            logger.info(f"\n[{i}] Index {log.get('index', 'unknown')}")
+            logger.info(f"Time: {log['timestamp_str']}")
+            logger.info(f"Level: {log['level']} | Component: {log['component']}")
+            logger.info(f"Text: {log['text'][:100]}{'...' if len(log['text']) > 100 else ''}")
+            logger.info("-" * 80)
     
-    def generate_readable_output(self, output_file='ccp_logs_readable.txt'):
-        """Generate a human-readable version of the logs"""
+    def generate_readable_output(self, output_file: str = 'ccp_logs_readable.txt') -> str:
+        """Generate a human-readable text version of the logs.
+
+        Args:
+            output_file: Path where the readable log file should be saved (default: 'ccp_logs_readable.txt')
+
+        Returns:
+            Path to the generated output file
+
+        Creates a formatted text file with log statistics, all log entries with their
+        full JSON data, and parsing error information.
+        """
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write("=" * 80 + "\n")
             f.write("Amazon Connect CCP Log Parser - Readable Output\n")
@@ -156,163 +214,36 @@ class CCPLogParser:
                 f.write(json_str + "\n")
                 f.write("\n" + "=" * 80 + "\n\n")
         
-        print(f"✓ Readable logs saved to: {output_file}")
+        logger.info(f"✓ Readable logs saved to: {output_file}")
         return output_file
     
-    def generate_html_output(self, output_file='ccp_logs_viewer.html'):
-        """Generate an interactive HTML viewer for the logs"""
-        html_content = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>CCP Log Viewer</title>
-    <style>
-        body {
-            font-family: 'Consolas', 'Monaco', monospace;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            padding: 20px;
-            margin: 0;
-        }
-        .header {
-            background-color: #252526;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .header h1 {
-            margin: 0 0 10px 0;
-            color: #569cd6;
-        }
-        .stats {
-            display: flex;
-            gap: 30px;
-            margin-top: 10px;
-        }
-        .stat-item {
-            color: #ce9178;
-        }
-        .log-entry {
-            background-color: #252526;
-            border-left: 4px solid #007acc;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .log-entry:hover {
-            background-color: #2d2d30;
-        }
-        .log-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        .log-timestamp {
-            color: #4ec9b0;
-            font-weight: bold;
-        }
-        .log-level {
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .log-level.INFO { background-color: #0e639c; }
-        .log-level.WARN { background-color: #d16969; }
-        .log-level.ERROR { background-color: #f44747; }
-        .log-level.DEBUG { background-color: #6c6c6c; }
-        .log-level.LOG { background-color: #4a4a4a; }
-        .log-level.TRACE { background-color: #3a3a3a; }
-        .log-text {
-            color: #9cdcfe;
-            margin-top: 5px;
-            font-size: 13px;
-        }
-        .log-content {
-            display: none;
-            background-color: #1e1e1e;
-            padding: 10px;
-            border-radius: 3px;
-            margin-top: 10px;
-            overflow-x: auto;
-        }
-        .log-entry.expanded .log-content {
-            display: block;
-        }
-        .expand-icon {
-            color: #858585;
-            margin-right: 10px;
-        }
-        .log-entry.expanded .expand-icon::before {
-            content: '▼ ';
-        }
-        .log-entry:not(.expanded) .expand-icon::before {
-            content: '▶ ';
-        }
-        pre {
-            margin: 0;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-        .snapshot {
-            border-left-color: #d7ba7d !important;
-        }
-        .filter-bar {
-            background-color: #252526;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .filter-bar select, .filter-bar input {
-            background-color: #3c3c3c;
-            color: #d4d4d4;
-            border: 1px solid #007acc;
-            padding: 8px;
-            border-radius: 3px;
-            margin-right: 10px;
-        }
-        .component-badge {
-            background-color: #3c3c3c;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            color: #dcdcaa;
-            margin-left: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Amazon Connect CCP Log Parser</h1>
-        <div class="stats">
-            <div class="stat-item">Total Entries: <span id="total-entries">0</span></div>
-            <div class="stat-item">Snapshots: <span id="total-snapshots">0</span></div>
-            <div class="stat-item">Skew Metrics: <span id="total-skew">0</span></div>
-            <div class="stat-item">Parse Errors: <span id="total-errors">0</span></div>
-        </div>
-    </div>
-    
-    <div class="filter-bar">
-        <label>Filter by Level:</label>
-        <select id="level-filter">
-            <option value="all">All Levels</option>
-            <option value="INFO">INFO</option>
-            <option value="WARN">WARN</option>
-            <option value="ERROR">ERROR</option>
-            <option value="DEBUG">DEBUG</option>
-            <option value="LOG">LOG</option>
-            <option value="TRACE">TRACE</option>
-        </select>
-        <label>Search:</label>
-        <input type="text" id="search-input" placeholder="Search logs...">
-    </div>
-    
-    <div id="logs-container"></div>
-    
-    <script>
-        const logsData = """ + json.dumps([{
+    def generate_html_output(self, output_file: str = 'ccp_logs_viewer.html') -> str:
+        """Generate an interactive HTML viewer for the logs.
+
+        Args:
+            output_file: Path where the HTML file should be saved (default: 'ccp_logs_viewer.html')
+
+        Returns:
+            Path to the generated HTML file
+
+        Creates a self-contained HTML file with embedded JavaScript for interactive
+        log viewing, including filtering by level, full-text search, collapsible entries,
+        and a dark theme interface.
+        """
+        # Read template file
+        template_path = Path(__file__).parent / 'template_log_viewer.html'
+
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                html_template = f.read()
+        except FileNotFoundError:
+            logger.warning(f"⚠ Warning: Template file not found at {template_path}")
+            logger.warning("  Falling back to embedded template")
+            # Fallback to basic template if file is missing
+            html_template = self._get_fallback_template()
+
+        # Prepare log data for JSON serialization
+        logs_data = json.dumps([{
             'timestamp': log['timestamp_str'],
             'level': log['level'],
             'component': log['component'],
@@ -320,98 +251,83 @@ class CCPLogParser:
             'data': log['data'],
             'index': log.get('index', 'unknown'),
             'is_snapshot': log in self.snapshots
-        } for log in self.logs], default=str) + """;
-        
-        document.getElementById('total-entries').textContent = logsData.length;
-        document.getElementById('total-snapshots').textContent = """ + str(len(self.snapshots)) + """;
-        document.getElementById('total-skew').textContent = """ + str(len(self.skew_metrics)) + """;
-        document.getElementById('total-errors').textContent = """ + str(len(self.parse_errors)) + """;
-        
-        const container = document.getElementById('logs-container');
-        
-        function renderLogs(filteredLogs) {
-            container.innerHTML = '';
-            filteredLogs.forEach((log, idx) => {
-                const logDiv = document.createElement('div');
-                logDiv.className = 'log-entry' + (log.is_snapshot ? ' snapshot' : '');
-                logDiv.innerHTML = `
-                    <div class="log-header">
-                        <div>
-                            <span class="expand-icon"></span>
-                            <span class="log-timestamp">${log.timestamp}</span>
-                            <span class="component-badge">${log.component}</span>
-                        </div>
-                        <span class="log-level ${log.level}">${log.level}</span>
-                    </div>
-                    <div class="log-text">${log.text}</div>
-                    <div class="log-content">
-                        <pre>${JSON.stringify(log.data, null, 2)}</pre>
-                    </div>
-                `;
-                logDiv.addEventListener('click', () => {
-                    logDiv.classList.toggle('expanded');
-                });
-                container.appendChild(logDiv);
-            });
-        }
-        
-        renderLogs(logsData);
-        
-        document.getElementById('level-filter').addEventListener('change', (e) => {
-            const level = e.target.value;
-            const filtered = level === 'all' ? logsData : logsData.filter(log => log.level === level);
-            renderLogs(filtered);
-        });
-        
-        document.getElementById('search-input').addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            const filtered = logsData.filter(log => 
-                log.text.toLowerCase().includes(searchTerm) ||
-                log.component.toLowerCase().includes(searchTerm) ||
-                log.timestamp.toLowerCase().includes(searchTerm) ||
-                JSON.stringify(log.data).toLowerCase().includes(searchTerm)
-            );
-            renderLogs(filtered);
-        });
-    </script>
-</body>
-</html>
-        """
-        
+        } for log in self.logs], default=str)
+
+        # Replace placeholders with actual data
+        html_content = html_template.replace('{LOGS_DATA}', logs_data)
+        html_content = html_content.replace('{TOTAL_SNAPSHOTS}', str(len(self.snapshots)))
+        html_content = html_content.replace('{TOTAL_SKEW}', str(len(self.skew_metrics)))
+        html_content = html_content.replace('{TOTAL_ERRORS}', str(len(self.parse_errors)))
+
+        # Write output file
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(html_content)
-        
-        print(f"✓ Interactive HTML viewer saved to: {output_file}")
-        print(f"  Open this file in your browser to view logs interactively")
+
+        logger.info(f"✓ Interactive HTML viewer saved to: {output_file}")
+        logger.info(f"  Open this file in your browser to view logs interactively")
         return output_file
+
+    def _get_fallback_template(self) -> str:
+        """Return a minimal fallback HTML template if template file is missing.
+
+        Returns:
+            Basic HTML template string with placeholders
+        """
+        return """<!DOCTYPE html>
+<html>
+<head>
+    <title>CCP Log Viewer</title>
+    <style>body { font-family: monospace; padding: 20px; }</style>
+</head>
+<body>
+    <h1>CCP Log Viewer (Fallback Mode)</h1>
+    <p>Template file missing. Showing basic view.</p>
+    <pre id="logs"></pre>
+    <script>
+        const logsData = {LOGS_DATA};
+        document.getElementById('logs').textContent = JSON.stringify(logsData, null, 2);
+    </script>
+</body>
+</html>"""
     
-    def generate_skew_metrics_report(self):
-        """Generate skew metrics analysis and graphs"""
+    def generate_skew_metrics_report(self) -> None:
+        """Generate skew metrics analysis and graphs.
+
+        Calculates statistics (average, min, max) for clock skew measurements
+        and generates visualization graphs. Prints results to stdout and saves
+        PNG files for time series and distribution plots.
+
+        Only executes if skew_metrics list contains data.
+        """
         if not self.skew_metrics:
-            print("⚠ No skew metrics found in logs")
+            logger.warning("⚠ No skew metrics found in logs")
             return
-        
+
         # Calculate statistics
         skew_values = [m['skew_ms'] for m in self.skew_metrics]
         avg_skew = sum(skew_values) / len(skew_values)
         max_skew = max(skew_values)
         min_skew = min(skew_values)
-        
-        print("\n" + "=" * 80)
-        print("SKEW METRICS ANALYSIS")
-        print("=" * 80)
-        print(f"Total Skew Measurements: {len(self.skew_metrics)}")
-        print(f"Average Skew: {avg_skew:.2f} ms")
-        print(f"Maximum Skew: {max_skew:.2f} ms")
-        print(f"Minimum Skew: {min_skew:.2f} ms")
-        print("=" * 80 + "\n")
+
+        logger.info("\n" + "=" * 80)
+        logger.info("SKEW METRICS ANALYSIS")
+        logger.info("=" * 80)
+        logger.info(f"Total Skew Measurements: {len(self.skew_metrics)}")
+        logger.info(f"Average Skew: {avg_skew:.2f} ms")
+        logger.info(f"Maximum Skew: {max_skew:.2f} ms")
+        logger.info(f"Minimum Skew: {min_skew:.2f} ms")
+        logger.info("=" * 80 + "\n")
         
         # Generate graphs
         self._plot_skew_over_time()
         self._plot_skew_distribution()
     
-    def _plot_skew_over_time(self):
-        """Plot skew metrics over time"""
+    def _plot_skew_over_time(self) -> None:
+        """Generate and save a line graph of skew metrics over time.
+
+        Creates a time series plot showing client-server clock skew throughout
+        the log session. Saves the result as 'skew_over_time.png'.
+        """
         if not self.skew_metrics:
             return
         
@@ -431,10 +347,14 @@ class CCPLogParser:
         plt.savefig(output_file, dpi=150, bbox_inches='tight')
         plt.close()
         
-        print(f"✓ Skew over time graph saved to: {output_file}")
+        logger.info(f"✓ Skew over time graph saved to: {output_file}")
     
-    def _plot_skew_distribution(self):
-        """Plot skew distribution histogram"""
+    def _plot_skew_distribution(self) -> None:
+        """Generate and save a histogram of skew value distribution.
+
+        Creates a histogram showing the frequency distribution of clock skew values.
+        Saves the result as 'skew_distribution.png'.
+        """
         if not self.skew_metrics:
             return
         
@@ -452,15 +372,23 @@ class CCPLogParser:
         plt.savefig(output_file, dpi=150, bbox_inches='tight')
         plt.close()
         
-        print(f"✓ Skew distribution graph saved to: {output_file}")
+        logger.info(f"✓ Skew distribution graph saved to: {output_file}")
 
 
-def list_log_files(directory_path):
-    """List all log files in the specified directory"""
+def list_log_files(directory_path: Path) -> List[Path]:
+    """List all log files in the specified directory.
+
+    Args:
+        directory_path: Path object pointing to the directory to scan
+
+    Returns:
+        Sorted list of Path objects for .txt and .log files found in the directory,
+        or empty list if directory doesn't exist
+    """
     directory = Path(directory_path)
     
     if not directory.exists():
-        print(f"✗ Error: Directory not found: {directory_path}")
+        logger.error(f"✗ Error: Directory not found: {directory_path}")
         return []
     
     # Get all .txt and .log files (common log file extensions)
@@ -472,20 +400,30 @@ def list_log_files(directory_path):
     return sorted(log_files)
 
 
-def display_file_menu(files):
-    """Display an interactive menu for file selection"""
+def display_file_menu(files: List[Path]) -> Optional[Path]:
+    """Display an interactive menu for file selection.
+
+    Args:
+        files: List of Path objects representing available log files
+
+    Returns:
+        Selected Path object, or None if user quits or no files available
+
+    Displays file information (name, size, modification time) and prompts
+    the user to select a file by number.
+    """
     if not files:
         return None
     
-    print("\n" + "=" * 80)
-    print("Available Log Files:")
-    print("=" * 80)
-    
+    logger.info("\n" + "=" * 80)
+    logger.info("Available Log Files:")
+    logger.info("=" * 80)
+
     for idx, file_path in enumerate(files, 1):
         # Get file size and modification time
         file_size = file_path.stat().st_size
         mod_time = datetime.fromtimestamp(file_path.stat().st_mtime)
-        
+
         # Format file size
         if file_size < 1024:
             size_str = f"{file_size} B"
@@ -493,11 +431,11 @@ def display_file_menu(files):
             size_str = f"{file_size / 1024:.1f} KB"
         else:
             size_str = f"{file_size / (1024 * 1024):.1f} MB"
-        
-        print(f"  [{idx}] {file_path.name}")
-        print(f"      Size: {size_str} | Modified: {mod_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    print("=" * 80)
+
+        logger.info(f"  [{idx}] {file_path.name}")
+        logger.info(f"      Size: {size_str} | Modified: {mod_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    logger.info("=" * 80)
     
     while True:
         try:
@@ -510,75 +448,84 @@ def display_file_menu(files):
             if 1 <= file_num <= len(files):
                 return files[file_num - 1]
             else:
-                print(f"✗ Invalid selection. Please enter a number between 1 and {len(files)}")
+                logger.error(f"✗ Invalid selection. Please enter a number between 1 and {len(files)}")
         except ValueError:
-            print("✗ Invalid input. Please enter a number or 'q' to quit")
+            logger.error("✗ Invalid input. Please enter a number or 'q' to quit")
 
 
-def main():
-    print("\n" + "=" * 80)
-    print("Amazon Connect CCP Log Parser - Local Edition")
-    print("=" * 80 + "\n")
-    
+def main() -> None:
+    """Main entry point for the CCP log parser.
+
+    Orchestrates the entire parsing workflow:
+    1. Scans for log files in the default directory
+    2. Presents interactive menu for file selection
+    3. Parses the selected log file
+    4. Generates all output formats (text, HTML, graphs)
+    5. Displays summary of generated files
+    """
+    logger.info("\n" + "=" * 80)
+    logger.info("Amazon Connect CCP Log Parser - Local Edition")
+    logger.info("=" * 80 + "\n")
+
     # Use relative path - finds agentLogsToParse directory next to the script
     script_dir = Path(__file__).parent
     DEFAULT_LOG_DIRECTORY = script_dir / "agentLogsToParse"
-    
-    print(f"📂 Scanning directory: {DEFAULT_LOG_DIRECTORY}")
-    
+
+    logger.info(f"📂 Scanning directory: {DEFAULT_LOG_DIRECTORY}")
+
     # List all log files in the directory
     log_files = list_log_files(DEFAULT_LOG_DIRECTORY)
-    
+
     if not log_files:
-        print("✗ No log files found in the directory")
-        print("   Supported file types: .txt, .log")
+        logger.error("✗ No log files found in the directory")
+        logger.error("   Supported file types: .txt, .log")
         return
-    
-    print(f"✓ Found {len(log_files)} log file(s)")
-    
+
+    logger.info(f"✓ Found {len(log_files)} log file(s)")
+
     # Display menu and get user selection
     selected_file = display_file_menu(log_files)
-    
+
     if selected_file is None:
-        print("\n👋 Goodbye!")
+        logger.info("\n👋 Goodbye!")
         return
-    
-    print(f"\n📂 Selected file: {selected_file.name}")
-    
+
+    logger.info(f"\n📂 Selected file: {selected_file.name}")
+
     # Parse logs
     parser = CCPLogParser(selected_file)
-    print("⚙ Parsing JSON log file...")
+    logger.info("⚙ Parsing JSON log file...")
     parser.parse_log_file()
-    
+
     # Show sample logs to help debug
     if parser.logs:
         parser.print_sample_logs(3)
-    
-    print(f"\n✓ Total log entries: {len(parser.logs)}")
-    print(f"✓ Agent snapshots: {len(parser.snapshots)}")
-    print(f"✓ Skew measurements: {len(parser.skew_metrics)}\n")
-    
+
+    logger.info(f"\n✓ Total log entries: {len(parser.logs)}")
+    logger.info(f"✓ Agent snapshots: {len(parser.snapshots)}")
+    logger.info(f"✓ Skew measurements: {len(parser.skew_metrics)}\n")
+
     # Generate outputs
-    print("📝 Generating readable text output...")
+    logger.info("📝 Generating readable text output...")
     parser.generate_readable_output()
-    
-    print("\n🌐 Generating interactive HTML viewer...")
+
+    logger.info("\n🌐 Generating interactive HTML viewer...")
     parser.generate_html_output()
-    
+
     if parser.skew_metrics:
-        print("\n📊 Generating skew metrics analysis...")
+        logger.info("\n📊 Generating skew metrics analysis...")
         parser.generate_skew_metrics_report()
-    
-    print("\n" + "=" * 80)
-    print("✓ Processing complete!")
-    print("=" * 80)
-    print("\nGenerated files:")
-    print("  - ccp_logs_readable.txt (text format)")
-    print("  - ccp_logs_viewer.html (interactive browser viewer)")
+
+    logger.info("\n" + "=" * 80)
+    logger.info("✓ Processing complete!")
+    logger.info("=" * 80)
+    logger.info("\nGenerated files:")
+    logger.info("  - ccp_logs_readable.txt (text format)")
+    logger.info("  - ccp_logs_viewer.html (interactive browser viewer)")
     if parser.skew_metrics:
-        print("  - skew_over_time.png (graph)")
-        print("  - skew_distribution.png (graph)")
-    print("\n")
+        logger.info("  - skew_over_time.png (graph)")
+        logger.info("  - skew_distribution.png (graph)")
+    logger.info("\n")
 
 
 if __name__ == "__main__":
